@@ -28,6 +28,6 @@ All skills below are user-invoked: they run only when you type them.
 
 | Skill | What it does |
 | --- | --- |
-| `/sanverite-skills:review-assist <fixed-point>` | Builds a reading plan for the change since a fixed point (branch, SHA, tag, `HEAD~n`), grouped by reading layer: contracts → domain → adapters → entry points → wiring → skim. Writes it to `.scratch/reviews/<branch>.md` and prints a short version. |
+| `/sanverite-skills:review-assist [fixed-point \| PR number]` | Builds a reading plan for a change: your uncommitted work (no argument), the change since a fixed point (branch, SHA, tag, `HEAD~n`), or a PR. Steps are grouped by reading layer (contracts → domain → adapters → entry points → wiring → skim), ordered by imports, with each test read just before its code. Every step has a risk flag, clickable `file:line` links, what changed and what to check. Writes `.scratch/reviews/<name>.md` and prints a short version. |
 
 More skills (peer-review, review-all, architect) are planned; see the [issues](https://github.com/sanverite/skills/issues).
