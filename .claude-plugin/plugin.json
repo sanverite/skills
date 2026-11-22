@@ -1,0 +1,14 @@
+{
+  "name": "sanverite-skills",
+  "version": "0.1.0",
+  "description": "Companion skills for mattpocock-skills: reading plans for human review, peer review by an external reviewer, and system-design interviews. Not an official Matt Pocock plugin.",
+  "author": {
+    "name": "sanverite",
+    "url": "https://github.com/sanverite"
+  },
+  "repository": "https://github.com/sanverite/skills",
+  "keywords": ["code-review", "review", "reading-plan", "mattpocock-skills"],
+  "skills": [
+    "./skills/review-assist"
+  ]
+}

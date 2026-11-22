@@ -1,0 +1,17 @@
+{
+  "name": "sanverite",
+  "owner": {
+    "name": "sanverite",
+    "url": "https://github.com/sanverite"
+  },
+  "description": "sanverite's companion skills for mattpocock-skills.",
+  "plugins": [
+    {
+      "name": "sanverite-skills",
+      "source": "./",
+      "description": "Companion skills for mattpocock-skills: reading plans for human review, peer review by an external reviewer, and system-design interviews.",
+      "category": "engineering",
+      "keywords": ["code-review", "review", "reading-plan"]
+    }
+  ]
+}
