@@ -4,7 +4,7 @@ description: Build a reading plan for a change since a fixed point, so a human c
 disable-model-invocation: true
 metadata:
   credits:
-    builds-on: code-review (fixed-point input)
+    skill: code-review
     author: Matt Pocock
     url: "https://github.com/mattpocock/skills"
 ---
@@ -19,9 +19,10 @@ Read `GLOSSARY.md` at the repo root if it exists, and use its vocabulary when de
 
 Whatever the user passed is the fixed point (a branch, SHA, tag, `HEAD~n`, etc.). If they passed nothing, ask for it.
 
-Before any other work, check both of these, and stop with the quoted message if either fails:
+Before any other work, check all of these, and stop with the quoted message if either fails:
 
 - The ref resolves: `git rev-parse --verify --quiet "<fixed-point>^{commit}"`. On failure: "`<fixed-point>` doesn't resolve to a commit. Pass a branch, SHA, tag or `HEAD~n`."
+- The ref shares history with `HEAD`: `git merge-base <fixed-point> HEAD`. On failure: "`<fixed-point>` shares no history with `HEAD`, so there's no merge-base to compare against."
 - The diff is non-empty: `git diff --name-status <fixed-point>...HEAD` (three-dot, so the comparison is against the merge-base). On empty output: "No changes between the merge-base of `<fixed-point>` and `HEAD`. Nothing to review."
 
 The `--name-status` output is the **file list**: every path on it must appear in the plan exactly once. For renames (`R…`) use the new path and note the old one without backticks ("renamed from old/path"); for deletions (`D`) keep the path and mark it deleted.
@@ -67,7 +68,7 @@ Use this shape. Layers appear in the order contracts → domain → adapters →
 ## Skim
 
 <details>
-<summary><n> files: generated, lockfiles, snapshots, vendored</summary>
+<summary><n> files: <kinds present, e.g. "lockfile, snapshots"></summary>
 
 - [ ] `package-lock.json`: <one line, e.g. "deps updated for X">
 
