@@ -17,36 +17,47 @@ Read `GLOSSARY.md` at the repo root if it exists, and use its vocabulary in ever
 
 ### 1. Pick the change
 
-Choose the mode from what the user passed. Each mode settles a **base**, a **head**, a **plan name** and a **link style**.
+Run every command from the repo root (`git rev-parse --show-toplevel`), so paths, links and the plan location all line up.
 
-**Nothing passed.** Run `git status --porcelain`.
+Choose the mode from what the user passed:
 
-- If it prints anything, review the uncommitted work: staged, unstaged and untracked (not ignored) files, against `HEAD`. Files: `git diff --name-status HEAD` plus `git ls-files --others --exclude-standard` (mark these as added). Diff: `git diff HEAD`, and read untracked files whole. Plan name: `<branch>-uncommitted`.
-- If it prints nothing, ask: "No uncommitted changes. Which change should I plan: a fixed point (branch, SHA, tag, `HEAD~n`) or a PR number?"
+- **Nothing passed.** If `git status --porcelain` prints anything, use **uncommitted** mode. If it prints nothing, ask: "No uncommitted changes. Which change should I plan: a fixed point (branch, SHA, tag, `HEAD~n`) or a PR number?"
+- **A PR number** (`#` then digits, or bare digits that `gh pr view` finds): **PR** mode. Bare digits that aren't a PR but resolve to a commit are a fixed point.
+- **Anything else**: **fixed-point** mode.
 
-**A PR number** (bare digits, or `#` then digits). Read the tracker setup in `docs/agents/issue-tracker.md` if present; on GitHub:
+Each mode settles the same five things. Use them in every later step:
+
+| | Uncommitted | Fixed point | PR |
+| --- | --- | --- | --- |
+| Base | `HEAD` | `<ref>` | `<baseRefOid>` |
+| Head | working tree | `HEAD` | `refs/review-assist/pr-<n>` |
+| File list | `git diff --name-status HEAD`, plus `git ls-files --others --exclude-standard` (marked added) | `git diff --name-status <base>...<head>` | same as fixed point |
+| Plan name | `<branch>-uncommitted` | `<branch>` | `pr-<n>` |
+| Link target | `../../<path>#L<line>` | `../../<path>#L<line>` | `<repo url>/blob/<headRefOid>/<path>#L<line>` |
+
+`<branch>` is `git branch --show-current`, or the short SHA on a detached `HEAD`. In every plan name, replace `/` with `-`. Three-dot diffs compare against the merge-base.
+
+**PR setup.** Read the tracker setup in `docs/agents/issue-tracker.md` if present. On GitHub:
 
 1. `gh pr view <n> --json number,title,body,url,baseRefOid,headRefOid`. On failure, stop: "PR #<n> not found, or `gh` isn't signed in (`gh auth login`)."
-2. Fetch both sides without touching the working tree: `git fetch origin <baseRefOid> "pull/<n>/head:refs/review-assist/pr-<n>"`.
-3. Base `<baseRefOid>` (the base branch tip, or its tip at merge time for a merged PR, so merged PRs still have a diff), head `refs/review-assist/pr-<n>`, then continue as for a fixed point below. Plan name: `pr-<n>`. Use the PR title and body for the overview.
+2. Fetch both sides from the PR's own repo (`<repo url>` is the PR url without `/pull/<n>`), without touching the working tree: `git fetch <repo url>.git <baseRefOid> "+pull/<n>/head:refs/review-assist/pr-<n>"`. `baseRefOid` is the base tip (at merge time, for a merged PR), so merged PRs still have a diff.
+3. Use the PR title and body for the overview. Read file contents with `git show <head>:<path>`.
 
-**Anything else is a fixed point.** Before any other work, check all of these, and stop with the quoted message if one fails:
+**Checks.** Before any other work, stop with the quoted message if one fails (fixed-point and PR modes):
 
-- It resolves: `git rev-parse --verify --quiet "<ref>^{commit}"`. On failure: "`<ref>` doesn't resolve to a commit. Pass a branch, SHA, tag, `HEAD~n` or a PR number."
-- It shares history with the head: `git merge-base <ref> <head>`. On failure: "`<ref>` shares no history with `<head>`, so there's no merge-base to compare against."
-- The diff is non-empty: `git diff --name-status <ref>...<head>` (three-dot, so the comparison is against the merge-base). On empty output: "No changes between the merge-base of `<ref>` and `<head>`. Nothing to review."
+- The base resolves: `git rev-parse --verify --quiet "<base>^{commit}"`. On failure: "`<base>` doesn't resolve to a commit. Pass a branch, SHA, tag, `HEAD~n` or a PR number."
+- It shares history with the head: `git merge-base <base> <head>`. On failure: "`<base>` shares no history with `<head>`, so there's no merge-base to compare against."
+- The file list is non-empty. On failure: "No changes between the merge-base of `<base>` and `<head>`. Nothing to review."
 
-Head is `HEAD` unless a PR set it. Plan name: the current branch (`git branch --show-current`), or the short SHA on a detached `HEAD`. In every plan name, replace `/` with `-`.
+The **file list** must appear in the plan exactly once per path. For renames (`R…`) use the new path and note "renamed from old/path" without backticks. Keep deleted files (`D`), marked deleted.
 
-The `--name-status` output (plus untracked files, in uncommitted mode) is the **file list**: every path on it must appear in the plan exactly once. For renames (`R…`) use the new path and note "renamed from old/path" without backticks. Keep deleted files (`D`), marked deleted.
-
-Read the full diff and the commits (`git log <base>..<head> --oneline`; none in uncommitted mode). For a PR, read file contents with `git show <head>:<path>`.
+Read the full diff (`git diff HEAD` in uncommitted mode, reading untracked files whole; `git diff <base>...<head>` otherwise) and the commits (`git log <base>..<head> --oneline`; none in uncommitted mode).
 
 ### 2. Sort files into reading layers
 
 **Repo layering first.** If the repo has its own layering, use it in place of the defaults below, keeping skim last. Signs: a layering or architecture section in `CLAUDE.md`, `AGENTS.md`, `ARCHITECTURE.md` or `docs/adr/`, or workspace packages (`packages/*`, `apps/*`, `crates/*`) that depend on each other. For packages, read lower packages (those others depend on) first, and name each layer after its package.
 
-**Default layers.** Otherwise put each file in the first of these that fits:
+**Default layers.** Otherwise check each file against these in the order listed, and put it in the first that fits. Skim is checked first but always read last:
 
 1. **Skim**: generated code, lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `Cargo.lock`, `poetry.lock`, `go.sum`, …), snapshots (`__snapshots__/`, `*.snap`), vendored code (`vendor/`, `third_party/`), build output, and any file whose header says it is generated.
 2. **Contracts**: migrations, database schemas, API definitions (OpenAPI, GraphQL, protobuf), shared types and interfaces, event or message payloads.
@@ -69,22 +80,22 @@ Each step has:
 
 - **Title**: a few words naming what the step changes, in domain language.
 - **Risk**: 🔴 high, 🟡 medium or 🟢 low. High: auth or security, data migrations and deletes, money, concurrency, public API or schema changes, removed behaviour, or logic with no test. Low: renames, comments, formatting, mechanical moves. Medium: the rest.
-- **Files**: each one a link whose text is the path and the changed line ranges in the new version, taken from the hunk headers of the diff with `-U0`: `` [`src/auth/session.ts:12-40,88`](../../src/auth/session.ts#L12) ``. The link points at the first range. Link targets:
-  - Local modes: relative to the plan file, so `../../<path>#L<line>`.
-  - PR mode: `<PR url's repo>/blob/<headRefOid>/<path>#L<line>`.
+- **Files**: each one a link (target from the table in step 1) whose text is the path and the changed line ranges in the new version, taken from the hunk headers of the diff with `-U0`: `` [`src/auth/session.ts:12-40,88`](../../src/auth/session.ts#L12) ``. The link points at the first range. Exceptions:
+  - Untracked files: the whole file, `:1-<line count>`.
+  - Pure renames and binary files (no hunks): link with the path alone as text, `` [`assets/logo.png`](../../assets/logo.png) ``.
   - Deleted files: no link, `` `old/path.ts` (deleted) ``.
   - Skim files: the path alone, `` `package-lock.json` ``.
 - **Changed**: one line, under 20 words, on what changed and why.
-- **Check**: one line, under 25 words, on the one to three things most worth verifying: edge cases, invariants, anything in the diff that looks off. Put the rest in the terminal report.
+- **Check**: one line, under 25 words, on the one to three things most worth verifying: edge cases, invariants, anything in the diff that looks off. Put the rest in the terminal report's "Worth a look" list.
 
 Wrap a file path in backticks **only** in its file entry. Elsewhere in the plan, name files without backticks, so the check in step 6 can count entries.
 
 ### 5. Write the plan
 
-Write to `.scratch/reviews/<plan name>.md`, creating the folder if needed and overwriting any earlier plan with that name. Layers go in reading order; omit any layer with no files. Use exactly this shape:
+Write to `.scratch/reviews/<plan name>.md`, creating the folder if needed and overwriting any earlier plan with that name. Layers go in reading order (contracts → domain → adapters → entry points → wiring → skim, or the repo's own layers with skim last); omit any layer with no files. Use exactly this shape:
 
 ```markdown
-# Review: <branch, PR "#<n> <title>", or "<branch> (uncommitted)">
+# Reading plan: <branch, PR "#<n> <title>", or "<branch> (uncommitted)">
 
 > <base>...<head> · <n> files · <n> commits · <n> steps · 🔴 <n> 🟡 <n> 🟢 <n>
 
@@ -121,11 +132,11 @@ In uncommitted mode, the header line reads `HEAD + uncommitted · <n> files · <
 
 ### 6. Check the plan
 
-Run this against the plan and the file list. It prints every path that doesn't appear exactly once as a file entry:
+Run this against the plan. It prints every path in the file list that doesn't appear exactly once as a file entry. Set `files` to the mode's file list as paths only: `{ git diff --name-only HEAD; git ls-files --others --exclude-standard; }` in uncommitted mode, `git diff --name-only <base>...<head>` otherwise.
 
 ```bash
 plan=.scratch/reviews/<plan name>.md
-<file list paths, one per line> | while read -r f; do
+<files> | while read -r f; do
   n=$(( $(grep -oF "\`$f\`" "$plan" | wc -l) + $(grep -oF "\`$f:" "$plan" | wc -l) ))
   [ "$n" -eq 1 ] || echo "$n $f"
 done
@@ -135,7 +146,7 @@ If it prints anything, fix the plan and run it again until it prints nothing. Th
 
 ### 7. Report in the terminal
 
-Print the path to the plan, then one line per layer present, with its step count, highest risk and its most important file:
+Print the path to the plan, then one line per layer present, with its step count, highest risk and its most important file. Then a short "Worth a look" list: the checks that didn't fit in the plan's one-line Check fields, and anything you noticed across steps.
 
 ```
 Reading plan: .scratch/reviews/feature-login.md (8 files, 5 steps)
@@ -144,3 +155,5 @@ Reading plan: .scratch/reviews/feature-login.md (8 files, 5 steps)
   Entry points  2  🔴  src/routes/login.ts
   Skim          1      (lockfile)
 ```
+
+In PR mode, delete the fetched ref when done: `git update-ref -d refs/review-assist/pr-<n>`.
