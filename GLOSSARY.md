@@ -34,6 +34,10 @@ _Avoid_: false positive, rejected
 An ordered list of steps a human reviewer follows to read a change line by line, grouped by reading layer, ordered by imports within a layer, and flagged by risk. Each test is read just before the code it tests.
 _Avoid_: review summary, walkthrough
 
+**Change surface**:
+The outward-facing things a change touches, directly or through their callers: APIs, exported functions, pages, components, CLI commands, jobs, schemas, config keys. Listed at the top of a reading plan.
+_Avoid_: affected list, impact summary
+
 **Reading layer**:
 One band of a reading plan: contracts, domain, adapters, entry points, wiring, then skim. A repo's own layering overrides these defaults.
 _Avoid_: tier, phase
