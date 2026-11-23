@@ -35,7 +35,7 @@ An ordered list of steps a human reviewer follows to read a change line by line,
 _Avoid_: review summary, walkthrough
 
 **Change surface**:
-The outward-facing things a change touches, directly or through their callers: APIs, exported functions, pages, components, CLI commands, jobs, schemas, config keys. Listed at the top of a reading plan.
+The outward-facing things a change touches, directly or through their callers: APIs, exported functions, pages, components, hooks, stores, the API clients it calls, CLI commands, jobs, schemas, config keys. Listed at the top of a reading plan.
 _Avoid_: affected list, impact summary
 
 **Reading layer**:

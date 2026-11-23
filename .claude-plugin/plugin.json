@@ -1,7 +1,7 @@
 {
   "name": "sanverite-skills",
   "version": "0.1.0",
-  "description": "Companion skills for mattpocock-skills. Ships review-assist: a reading plan for human review of a change. Not an official Matt Pocock plugin.",
+  "description": "Companion skills for mattpocock-skills. Ships review-assist: a reading plan for human review of a change, with its change surface and cURLs. Not an official Matt Pocock plugin.",
   "author": {
     "name": "sanverite",
     "url": "https://github.com/sanverite"

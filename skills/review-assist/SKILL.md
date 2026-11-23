@@ -1,6 +1,6 @@
 ---
 name: review-assist
-description: Build a reading plan for a change (uncommitted work, a fixed point, or a PR number), so a human can review it line by line in an order that makes sense.
+description: Build a reading plan for a change (uncommitted work, a fixed point, or a PR number), so a human can review it line by line in an order that makes sense, with the change surface and cURLs to test affected endpoints by hand.
 disable-model-invocation: true
 metadata:
   credits:
@@ -9,7 +9,7 @@ metadata:
     url: "https://github.com/mattpocock/skills"
 ---
 
-Build a **reading plan** for a change: a markdown checklist of steps that tells a human reviewer what to read, in which order, and what to check. Steps are grouped by **reading layer**, so the reviewer reads the shapes everything depends on before the code that uses them.
+Build a **reading plan** for a change: a markdown checklist of steps that tells a human reviewer what to read, in which order, and what to check. Steps are grouped by **reading layer**, so the reviewer reads the shapes everything depends on before the code that uses them. The plan opens with the **change surface**: what the change affects, with cURLs for the HTTP endpoints it touches, so the reviewer can test it by hand.
 
 Read `GLOSSARY.md` at the repo root if it exists, and use its vocabulary in every description.
 
@@ -88,20 +88,91 @@ Each step has:
 - **Changed**: one line, under 20 words, on what changed and why.
 - **Check**: one line, under 25 words, on the one to three things most worth verifying: edge cases, invariants, anything in the diff that looks off. Put the rest in the terminal report's "Worth a look" list.
 
-Wrap a file path in backticks **only** in its file entry. Elsewhere in the plan, name files without backticks, so the check in step 6 can count entries.
+Wrap a file path in backticks **only** in its file entry. Elsewhere in the plan, name files without backticks, so the check in step 7 can count entries.
 
-### 5. Write the plan
+### 5. Map the change surface
+
+List the outward-facing things the change touches. Kinds: APIs (HTTP routes, GraphQL operations, gRPC methods, webhooks the app receives), exported functions, pages/routes, components, hooks, stores, API clients called, CLI commands, jobs, queue consumers and WebSocket handlers, schemas, config keys. Skip any kind with nothing in it.
+
+- **Direct**: the item's own code changed. Only exported or public functions and methods; private helpers are covered by the steps.
+- **Indirect**: the item's code didn't change, but it calls a changed symbol. Follow callers up from each changed symbol to the entry points (routes, pages, commands, jobs) and mark each `via <symbol>`. Per changed symbol, list at most 5 indirect items, then "+N more".
+- **Removed**: a deleted endpoint, page or export is marked `removed`. A renamed or moved route shows the old path as removed and the new one as direct, with cURLs. Search the repo for callers of anything removed and list them in the terminal report's "Worth a look".
+- **Read in**: the step holding the item's code (`Step 3`); for indirect items, the step holding the changed symbol.
+
+Name symbols and routes in backticks (`` `calculateTax()` ``, `` `POST /api/orders` ``), but never a file path, so the check in step 7 still counts each file once.
+
+**cURLs.** Decide per item, never by repo type: write cURLs only for HTTP endpoints this codebase serves, whether the repo is a backend, a full-stack app (e.g. Next.js `app/api/*`) or a monorepo. An API client that calls someone else's endpoint gets no cURL. Removed endpoints get none.
+
+- Open with one `export` block: `BASE_URL` with the port taken from the repo (`.env.example`, config, the dev script), else `http://localhost:3000`; `TOKEN` only if any endpoint needs auth, as `<your token>`. Never read real secrets from `.env` files.
+- Per endpoint: a happy-path call, plus one call for the edge case the change introduces (a new validation error, auth rule, status code) when there is one. Two at most. Comment each with the expected status.
+- Build bodies from the endpoint's schema or validator (zod, pydantic, DTO, OpenAPI) with realistic values that use any field the change adds or alters. With no schema, infer from the handler and add `# inferred`.
+- GraphQL: a `POST` with the operation and variables. gRPC: `grpcurl`. Webhooks: a cURL that simulates the sender, with signature headers set to `<signature>` and marked `# placeholder`. Jobs, queue consumers and WebSocket handlers: no command, a one-line hint in their table's Trigger column instead.
+
+**Test hints.** Each page gets a one-line manual test hint: where to go and what to do to exercise the change ("open /checkout, apply an expired coupon, expect an error toast").
+
+If nothing outward-facing changed (docs, lockfiles, refactors of private code), the section is the single line "No outward-facing changes."
+
+### 6. Write the plan
 
 Write to `.scratch/reviews/<plan name>.md`, creating the folder if needed and overwriting any earlier plan with that name. Layers go in reading order (contracts → domain → adapters → entry points → wiring → skim, or the repo's own layers with skim last); omit any layer with no files. Use exactly this shape:
 
-```markdown
+````markdown
 # Reading plan: <branch, PR "#<n> <title>", or "<branch> (uncommitted)">
 
-> <base>...<head> · <n> files · <n> commits · <n> steps · 🔴 <n> 🟡 <n> 🟢 <n>
-
-<one or two sentences: what the change does and why>
+> [!NOTE]
+> **<base>...<head>** · <n> files · <n> commits · <n> steps · 🔴 <n> 🟡 <n> 🟢 <n>
+>
+> <one or two sentences: what the change does and why>
 
 <optional: when the change spans 3+ steps, a small diagram in a code block showing how the main pieces connect, e.g. `Session type ─▶ newSession() ─▶ login route`>
+
+## Change surface
+
+### APIs
+
+| Endpoint | Impact | Read in |
+| --- | --- | --- |
+| `POST /api/orders` | direct | Step 4 |
+| `GET /api/invoices/:id` | via `calculateTax()` | Step 2 |
+| `DELETE /api/carts/:id` | removed | Step 5 |
+
+<details><summary>cURLs</summary>
+
+```bash
+export BASE_URL=http://localhost:3000
+export TOKEN=<your token>
+
+# POST /api/orders: happy path, expect 201
+curl -X POST "$BASE_URL/api/orders" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"items":[{"sku":"TSHIRT-M","qty":2}],"couponCode":"WELCOME10"}'
+
+# POST /api/orders: expired coupon, expect 422
+curl -X POST "$BASE_URL/api/orders" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"items":[{"sku":"TSHIRT-M","qty":1}],"couponCode":"EXPIRED"}'
+
+# GET /api/invoices/:id: expect 200 with tax recalculated
+curl "$BASE_URL/api/invoices/inv_123" -H "Authorization: Bearer $TOKEN"
+```
+
+</details>
+
+### Functions
+
+| Function | Impact | Read in |
+| --- | --- | --- |
+| `calculateTax()` | direct | Step 2 |
+
+### Pages
+
+| Route | Impact | Read in | Test |
+| --- | --- | --- | --- |
+| `/checkout` | via `applyCoupon()` | Step 3 | Apply an expired coupon, expect an error toast |
+
+---
 
 ## Contracts
 
@@ -109,6 +180,8 @@ Write to `.scratch/reviews/<plan name>.md`, creating the folder if needed and ov
   - [`db/migrations/004_sessions.sql:1-12`](../../db/migrations/004_sessions.sql#L1) · [`src/types.ts:3-9`](../../src/types.ts#L3)
   - Changed: <one line>
   - Check: <one line>
+
+---
 
 ## Domain
 
@@ -119,6 +192,8 @@ Write to `.scratch/reviews/<plan name>.md`, creating the folder if needed and ov
 
 …
 
+---
+
 ## Skim
 
 <details><summary><n> files: <kinds present, e.g. "lockfile, snapshots"></summary>
@@ -126,11 +201,13 @@ Write to `.scratch/reviews/<plan name>.md`, creating the folder if needed and ov
 - [ ] `package-lock.json`: <a few words>
 
 </details>
-```
+````
 
-In uncommitted mode, the header line reads `HEAD + uncommitted · <n> files · <n> steps · …`.
+Other kinds (components, hooks, stores, API clients called, CLI commands, schemas, config keys) get the same three columns, one `###` per kind present. Jobs, queue consumers and WebSocket handlers get a fourth "Trigger" column instead of cURLs. Put a horizontal rule (`---`) before each layer heading. Steps stay checkbox lists, never tables; use no emojis besides the risk dots.
 
-### 6. Check the plan
+In uncommitted mode, the callout's first line reads `**HEAD + uncommitted** · <n> files · <n> steps · …`.
+
+### 7. Check the plan
 
 Run this against the plan. It prints every path in the file list that doesn't appear exactly once as a file entry. Set `files` to the mode's file list as paths only: `{ git diff --name-only HEAD; git ls-files --others --exclude-standard; }` in uncommitted mode, `git diff --name-only <base>...<head>` otherwise.
 
@@ -142,11 +219,11 @@ plan=.scratch/reviews/<plan name>.md
 done
 ```
 
-If it prints anything, fix the plan and run it again until it prints nothing. Then confirm by reading the plan: layers in order, each test just before its code, and no file before a changed file it imports.
+If it prints anything, fix the plan and run it again until it prints nothing. Then confirm by reading the plan: layers in order, each test just before its code, no file before a changed file it imports, every surface row's "Read in" step holds its code, and cURLs only for endpoints this codebase serves.
 
-### 7. Report in the terminal
+### 8. Report in the terminal
 
-Print the path to the plan, then one line per layer present, with its step count, highest risk and its most important file. Then a short "Worth a look" list: the checks that didn't fit in the plan's one-line Check fields, and anything you noticed across steps.
+Print the path to the plan, then one line per layer present, with its step count, highest risk and its most important file, then one line counting the change surface by kind. Then a short "Worth a look" list: the checks that didn't fit in the plan's one-line Check fields, callers of anything removed, and anything you noticed across steps.
 
 ```
 Reading plan: .scratch/reviews/feature-login.md (8 files, 5 steps)
@@ -154,6 +231,7 @@ Reading plan: .scratch/reviews/feature-login.md (8 files, 5 steps)
   Domain        1  🔴  src/auth/session.ts
   Entry points  2  🔴  src/routes/login.ts
   Skim          1      (lockfile)
+  Surface       APIs 3 (1 direct) · Pages 1 · Functions 1
 ```
 
 In PR mode, delete the fetched ref when done: `git update-ref -d refs/review-assist/pr-<n>`.
