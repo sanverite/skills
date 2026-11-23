@@ -19,7 +19,33 @@ Read `GLOSSARY.md` at the repo root if it exists, and use its vocabulary in ever
 
 Run every command from the repo root (`git rev-parse --show-toplevel`), so paths, links and the plan location all line up.
 
-Choose the mode from what the user passed:
+If the arguments include `--out <folder>`, take the folder out: it sets the plan folder for this run.
+
+**Plan folder.** Settle where the plan goes before anything else, so first-run setup files can be kept out of the change:
+
+1. `--out <folder>` was passed: use it for this run only. Don't save it.
+2. Otherwise, if `docs/agents/review-assist.md` exists, use its `Plan folder:` line.
+3. Otherwise this is the first run in the repo. Ask: "Where should I save reading plans in this repo?", offering `.scratch/reviews/` first plus "Other". Then:
+   - If the folder is inside the repo and `git check-ignore -q <folder>/x` fails (not ignored), ask once: "<folder> isn't gitignored. Add it to `.gitignore`?" Append `<folder>/` only on a yes.
+   - Write `docs/agents/review-assist.md`, creating `docs/agents/` if needed:
+
+     ```markdown
+     # review-assist
+
+     Plan folder: <folder>
+
+     Edit the line above to change where reading plans are saved, or delete this file to be asked again on the next run.
+     ```
+
+Normalise the folder (from `--out` or the answer above) before using or saving it: resolve it to an absolute path and drop any trailing `/`. If it lies under the repo root, use it relative to the root (`.scratch/reviews`); otherwise keep it absolute.
+
+Run `mkdir -p <folder>`. If that fails or `test -w <folder>` fails, stop: "Can't write reading plans to `<folder>`. Fix its permissions, edit `docs/agents/review-assist.md`, or pass `--out <folder>`."
+
+`<up>` is the relative path from the plan folder back to the repo root: one `..` per segment of the folder's path from the root (`.scratch/reviews` → `../..`, `reviews` → `..`). If the folder is outside the repo, there is no `<up>`; link instead to `<repo url>/blob/<sha>/<path>#L<line>` when `gh repo view --json url -q .url` gives a `<repo url>` and the head commit is on a remote (`git branch -r --contains <sha>` prints something; `<sha>` is `git rev-parse HEAD`), else to the absolute path, `<repo root>/<path>#L<line>`. Wrap any link target containing a space in `<…>`. Uncommitted mode always uses absolute paths outside the repo, since the working tree isn't on any remote.
+
+In uncommitted mode, leave the plan folder (when inside the repo) and `docs/agents/review-assist.md` out of the `git status` check and both file-list commands, by adding the pathspecs `-- . ':!<folder>' ':!docs/agents/review-assist.md'`. In the terminal report after a first run, remind the user to commit `docs/agents/review-assist.md` (and `.gitignore`, if changed).
+
+Then choose the mode from what's left:
 
 - **Nothing passed.** If `git status --porcelain` prints anything, use **uncommitted** mode. If it prints nothing, ask: "No uncommitted changes. Which change should I plan: a fixed point (branch, SHA, tag, `HEAD~n`) or a PR number?"
 - **A PR number** (`#` then digits, or bare digits that `gh pr view` finds): **PR** mode. Bare digits that aren't a PR but resolve to a commit are a fixed point.
@@ -33,7 +59,7 @@ Each mode settles the same five things. Use them in every later step:
 | Head | working tree | `HEAD` | `refs/review-assist/pr-<n>` |
 | File list | `git diff --name-status HEAD`, plus `git ls-files --others --exclude-standard` (marked added) | `git diff --name-status <base>...<head>` | same as fixed point |
 | Plan name | `<branch>-uncommitted` | `<branch>` | `pr-<n>` |
-| Link target | `../../<path>#L<line>` | `../../<path>#L<line>` | `<repo url>/blob/<headRefOid>/<path>#L<line>` |
+| Link target | `<up>/<path>#L<line>` | `<up>/<path>#L<line>` | `<repo url>/blob/<headRefOid>/<path>#L<line>` |
 
 `<branch>` is `git branch --show-current`, or the short SHA on a detached `HEAD`. In every plan name, replace `/` with `-`. Three-dot diffs compare against the merge-base.
 
@@ -88,6 +114,8 @@ Each step has:
 - **Changed**: one line, under 20 words, on what changed and why.
 - **Check**: one line, under 25 words, on the one to three things most worth verifying: edge cases, invariants, anything in the diff that looks off. Put the rest in the terminal report's "Worth a look" list.
 
+Example links above assume the default `.scratch/reviews` folder (`<up>` = `../..`).
+
 Wrap a file path in backticks **only** in its file entry. Elsewhere in the plan, name files without backticks, so the check in step 7 can count entries.
 
 ### 5. Map the change surface
@@ -114,7 +142,7 @@ If nothing outward-facing changed (docs, lockfiles, refactors of private code), 
 
 ### 6. Write the plan
 
-Write to `.scratch/reviews/<plan name>.md`, creating the folder if needed and overwriting any earlier plan with that name. Layers go in reading order (contracts → domain → adapters → entry points → wiring → skim, or the repo's own layers with skim last); omit any layer with no files. Use exactly this shape:
+Write to `<plan folder>/<plan name>.md`, overwriting any earlier plan with that name. Layers go in reading order (contracts → domain → adapters → entry points → wiring → skim, or the repo's own layers with skim last); omit any layer with no files. Use exactly this shape (links shown for the default `.scratch/reviews` folder):
 
 ````markdown
 # Reading plan: <branch, PR "#<n> <title>", or "<branch> (uncommitted)">
@@ -209,10 +237,10 @@ In uncommitted mode, the callout's first line reads `**HEAD + uncommitted** · <
 
 ### 7. Check the plan
 
-Run this against the plan. It prints every path in the file list that doesn't appear exactly once as a file entry. Set `files` to the mode's file list as paths only: `{ git diff --name-only HEAD; git ls-files --others --exclude-standard; }` in uncommitted mode, `git diff --name-only <base>...<head>` otherwise.
+Run this against the plan. It prints every path in the file list that doesn't appear exactly once as a file entry. Set `files` to the mode's file list as paths only: `{ git diff --name-only HEAD; git ls-files --others --exclude-standard; }` in uncommitted mode (with the same pathspecs as step 1), `git diff --name-only <base>...<head>` otherwise.
 
 ```bash
-plan=.scratch/reviews/<plan name>.md
+plan=<plan folder>/<plan name>.md
 <files> | while read -r f; do
   n=$(( $(grep -oF "\`$f\`" "$plan" | wc -l) + $(grep -oF "\`$f:" "$plan" | wc -l) ))
   [ "$n" -eq 1 ] || echo "$n $f"
@@ -226,7 +254,7 @@ If it prints anything, fix the plan and run it again until it prints nothing. Th
 Print the path to the plan, then one line per layer present, with its step count, highest risk and its most important file, then one line counting the change surface by kind. Then a short "Worth a look" list: the checks that didn't fit in the plan's one-line Check fields, callers of anything removed, and anything you noticed across steps.
 
 ```
-Reading plan: .scratch/reviews/feature-login.md (8 files, 5 steps)
+Reading plan: <plan folder>/feature-login.md (8 files, 5 steps)
   Contracts     1  🟡  db/migrations/004_sessions.sql
   Domain        1  🔴  src/auth/session.ts
   Entry points  2  🔴  src/routes/login.ts
