@@ -42,6 +42,10 @@ _Avoid_: affected list, impact summary
 One band of a reading plan: contracts, domain, adapters, entry points, wiring, then skim. A repo's own layering overrides these defaults.
 _Avoid_: tier, phase
 
+**Pinned finding**:
+A review finding placed under the reading-plan step that holds its file, so the reviewer meets it while reading that code. Findings with no such step go in a trailing Unpinned step.
+_Avoid_: annotation, inline comment
+
 ### Design
 
 **Requirement**:

@@ -9,7 +9,7 @@
     {
       "name": "sanverite-skills",
       "source": "./",
-      "description": "Companion skills for mattpocock-skills. Ships review-assist (a reading plan for human review of a change, with its change surface and cURLs), peer-review (a blind review of a diff, spec or tickets by Codex, reconciled against the host agent's own review) and architect (requirements-first system design, with every stack choice traced to a requirement).",
+      "description": "Companion skills for mattpocock-skills. Ships review-assist (a reading plan for human review of a change, with its change surface and cURLs), peer-review (a blind review of a diff, spec or tickets by Codex, reconciled against the host agent's own review), review-all (both reviews plus a reading plan with every finding pinned to its step) and architect (requirements-first system design, with every stack choice traced to a requirement).",
       "category": "engineering",
       "keywords": ["code-review", "review", "reading-plan", "system-design", "peer-review"]
     }
