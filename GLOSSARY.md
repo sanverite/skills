@@ -11,7 +11,7 @@ The agent running the skill (e.g. Claude in Claude Code), as opposed to the exte
 _Avoid_: main model, Claude (when the host could be another agent)
 
 **External reviewer**:
-An AI agent from a different vendor or model than the host agent (e.g. Codex, CodeRabbit), run on the user's explicit authorization.
+An AI agent from a different vendor or model than the host agent (e.g. Codex), run on the user's explicit authorization.
 _Avoid_: second model, other AI, peer
 
 **Peer review**:

@@ -63,23 +63,20 @@ Find the **parent spec**: the issue named in the tickets' `## Parent` section or
 
 If `docs/agents/peer-review.md` exists, read its settings and skip to the login check.
 
-Otherwise this is the first run in the repo. Check which supported external reviewers are installed: `command -v codex`. Codex is the only one supported so far.
+Otherwise this is the first run in the repo. Codex is the only supported external reviewer. If `command -v codex` fails, stop: "peer-review needs Codex. Install it with `npm install -g @openai/codex`, run `codex login`, then run peer-review again." Otherwise write `docs/agents/peer-review.md`, creating `docs/agents/` if needed:
 
-- None installed: stop. "No supported external reviewer found. Install Codex (`npm install -g @openai/codex`), run `codex login`, then run peer-review again."
-- Otherwise ask: "Which external reviewer should peer-review use in this repo?", listing the installed ones. Then write `docs/agents/peer-review.md`, creating `docs/agents/` if needed:
+```markdown
+# peer-review
 
-  ```markdown
-  # peer-review
+External reviewer: Codex
+Review command: codex exec -s read-only --ephemeral -o <output file> -
+Login check: codex login status
+Login command: codex login
 
-  External reviewer: Codex
-  Review command: codex exec -s read-only --ephemeral -o <output file> -
-  Login check: codex login status
-  Login command: codex login
+The review brief is passed on stdin, for diffs, specs and tickets alike. Edit the review command to change Codex's flags (keep `-s read-only`), or delete this file to reset it on the next run.
+```
 
-  The review brief is passed on stdin, for diffs, specs and tickets alike. Edit these lines to change the reviewer or its command, or delete this file to be asked again on the next run.
-  ```
-
-  Remind the user in the final report to commit it.
+Remind the user in the final report to commit it.
 
 **Login check.** If `command -v codex` fails, stop: "Codex isn't installed. Install it with `npm install -g @openai/codex`, then run `codex login`." If the login check exits non-zero, stop: "Codex isn't logged in. Run `codex login`, then run peer-review again."
 
