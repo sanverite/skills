@@ -1,16 +1,17 @@
 {
   "name": "sanverite-skills",
   "version": "0.1.0",
-  "description": "Companion skills for mattpocock-skills. Ships review-assist (a reading plan for human review of a change, with its change surface and cURLs) and architect (requirements-first system design, with every stack choice traced to a requirement). Not an official Matt Pocock plugin.",
+  "description": "Companion skills for mattpocock-skills. Ships review-assist (a reading plan for human review of a change, with its change surface and cURLs), peer-review (a blind review of a diff by Codex, reconciled against code-review) and architect (requirements-first system design, with every stack choice traced to a requirement). Not an official Matt Pocock plugin.",
   "author": {
     "name": "sanverite",
     "url": "https://github.com/sanverite"
   },
   "repository": "https://github.com/sanverite/skills",
   "license": "MIT",
-  "keywords": ["code-review", "review", "reading-plan", "mattpocock-skills", "system-design"],
+  "keywords": ["code-review", "review", "reading-plan", "mattpocock-skills", "system-design", "peer-review"],
   "skills": [
     "./skills/review-assist",
-    "./skills/architect"
+    "./skills/architect",
+    "./skills/peer-review"
   ]
 }
