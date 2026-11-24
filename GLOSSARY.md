@@ -55,3 +55,7 @@ _Avoid_: legacy, given
 **Stack table**:
 The single table recording easily reversible technology choices (choice, alternatives, why, requirement, date, status). One-way-door choices get an ADR instead.
 _Avoid_: tech radar, stack list
+
+**Interview phase**:
+One stage of the architect interview, settled in a fixed order (functional requirements first, stack last). Distinct from a reading layer.
+_Avoid_: step, stage
