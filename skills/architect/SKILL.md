@@ -18,7 +18,11 @@ Use the vocabulary in `GLOSSARY.md`: **requirement**, **constraint**, **stack ta
 
 Run from the repo root (`git rev-parse --show-toplevel`). Read, where present: `GLOSSARY.md` or `GLOSSARY-MAP.md`, `docs/architecture.md`, `docs/stack.md`, every ADR in `docs/adr/`.
 
-Each decision found there is a **constraint**: treat it as fixed, never re-ask it.
+If the repo already has code, read the current stack from it too: dependency manifests (`package.json`, `go.mod`, `pyproject.toml`…), infrastructure files (`docker-compose*`, Terraform, Kubernetes manifests), migrations and schema files, and the top-level source layout.
+
+Each decision found in docs or code is a **constraint**: fixed, never re-asked. Give each one an id, `C-1`, `C-2`…, with its source (an ADR, a stack row, or a file path).
+
+**Existing app without architecture docs.** Before the interview, write the constraints to the Constraints section of `docs/architecture.md` (step 3). Then, in one grilling round, ask the user why each hard-to-reverse constraint was chosen (datastore, language, framework, hosting, auth). Where they give a reason, write an ADR after the fact, stating it was recorded after the decision. Where they don't know, record the reason as `reason unknown`. Never infer a reason from the code: a guessed reason reads as fact.
 
 Read [`PRINCIPLES.md`](PRINCIPLES.md) in full. It holds, per topic, the trade-off questions and requirement signals the interview draws on.
 
@@ -41,7 +45,18 @@ A phase is done when every principles topic it lists has either a settled answer
 
 **Requirements carry ids**: `FR-1`, `FR-2` for functional, `NFR-1` for non-functional. Every non-functional requirement has a number (p99 under 200 ms, 99.9% monthly, 10k concurrent users). An adjective is not a requirement yet: ask for the number.
 
-**Every recommended answer from phase 2 on cites** the requirement ids it serves and the principle it rests on: `➡️ Single leader with async read replicas (NFR-2, NFR-4; DDIA 5)`.
+**Every recommended answer from phase 2 on cites** the requirement ids it serves and the principle it rests on, plus any constraint that limits the options: `➡️ Single leader with async read replicas (NFR-2, NFR-4; DDIA 5; within C-1: Postgres)`.
+
+**Adding a subsystem.** When the repo already has an architecture, scope every phase to the new subsystem: ask only its open decisions, and new requirement ids continue the existing numbering. A question whose answer a constraint already fixes is not asked. Phases where the constraints settle everything are marked as such, citing them, and skipped.
+
+**Too big for one session.** At the end of phase 3, list the areas phases 4–8 still have to cover: subsystems or bounded contexts that each need their own data model, storage, communication and failure decisions. If more than one area remains, or an area is still too vague to ask precise questions about, the design won't fit one session. Record phases 1–3 (step 3), then stop and suggest the user run `/wayfinder` with:
+
+- **Destination**: the architecture of `<system>`, recorded in `docs/architecture.md`, ADRs and `docs/stack.md`.
+- **Notes**: run `sanverite-skills:architect` for each ticket.
+- **Tickets**: one grilling ticket per area, its question being "Architect `<area>`: phases 4–8".
+- **Not yet specified**: any area still too vague for a precise question.
+
+A ticket's architect run loads phases 1–3 as written and works phases 4–8 for its area only, using the subsystem scoping above.
 
 **Stack phase.** Ask only questions whose answer serves a recorded requirement, and name the ids in the question. A choice no requirement asks for is either unneeded or a sign a requirement is missing: ask which. Then:
 
@@ -62,16 +77,19 @@ Write as each phase settles, so nothing waits on the end of the session. Today's
 
 Sections, in this order, each filled as its phase settles:
 
-1. **Requirements**: tables `| ID | Requirement | Number |` for FR and NFR.
-2. **Capacity estimates**: the arithmetic, not only the results.
-3. **Components**: a Mermaid component diagram.
-4. **Flows**: a Mermaid flowchart or sequence diagram for each flow whose order or failure path isn't obvious.
-5. **Data model**: entities, relationships, and the access patterns each one serves. Entities and fields, not DDL.
-6. **Communication**: sync and async paths, delivery guarantees, realtime transport.
-7. **Failure modes**: per dependency, what happens when it is slow or down, and the pattern that handles it.
-8. **Adapter boundaries**: per external technology, its port and adapter.
-9. **Testing strategy**: levels, what each proves, requirements covered.
-10. **Decisions**: links to the ADRs and to `docs/stack.md`.
+1. **Constraints** (only when some exist): `| ID | Constraint | Source | Reason |`, with the reason linking to its ADR or reading `reason unknown`.
+2. **Requirements**: tables `| ID | Requirement | Number |` for FR and NFR.
+3. **Capacity estimates**: the arithmetic, not only the results.
+4. **Components**: a Mermaid component diagram.
+5. **Flows**: a Mermaid flowchart or sequence diagram for each flow whose order or failure path isn't obvious.
+6. **Data model**: entities, relationships, and the access patterns each one serves. Entities and fields, not DDL.
+7. **Communication**: sync and async paths, delivery guarantees, realtime transport.
+8. **Failure modes**: per dependency, what happens when it is slow or down, and the pattern that handles it.
+9. **Adapter boundaries**: per external technology, its port and adapter.
+10. **Testing strategy**: levels, what each proves, requirements covered.
+11. **Decisions**: links to the ADRs and to `docs/stack.md`.
+
+When adding a subsystem, extend the existing sections in place: new rows, new diagram nodes, a sub-heading per subsystem where a section grows long.
 
 ### ADRs
 
@@ -102,6 +120,8 @@ date: YYYY-MM-DD
 ```
 
 When a decision replaces an existing ADR, set the old one's status to `superseded by ADR-NNNN`.
+
+An ADR written after the fact (step 1) uses the recording date, and its first sentence says the decision predates the record. Its Considered Options lists only alternatives the user named, and its Requirements line may read `none recorded`.
 
 ### `docs/stack.md`
 
