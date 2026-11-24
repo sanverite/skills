@@ -15,6 +15,7 @@ Every recommendation names the requirement it rests on and cites a source below.
 | RI | Nygard, *Release It!*, 2nd ed. |
 | SRE | Beyer et al., *Site Reliability Engineering* |
 | SDI1 / SDI2 | Xu, *System Design Interview* Vol 1; Xu & Lam, Vol 2 |
+| BM | Newman, *Building Microservices*, 2nd ed. |
 
 `DDIA 5` means DDIA chapter 5.
 
@@ -28,7 +29,7 @@ Every recommendation names the requirement it rests on and cites a source below.
 | Storage, replication, partitioning | Storage engines; Replication; Partitioning; Transactions and consistency |
 | Communication | Streams and logs; Service boundaries and data ownership |
 | Failure modes | Stability patterns; Overload and load shedding |
-| Stack | Architecture styles |
+| Stack | Architecture styles; Testing strategy |
 
 ---
 
@@ -92,7 +93,7 @@ Signals: point lookups by ID → hash partitioning, consistent hashing if nodes 
 - Which invariants must never break (balance ≥ 0, a seat sold once)? Those need serializable isolation or an equivalent guard. [DDIA 7]
 - Which anomalies would weaker isolation allow here (lost updates, write skew), and are they acceptable? [DDIA 7]
 - Does any operation need linearizability (uniqueness, leader election, locks)? That needs consensus, and it costs latency and availability. [DDIA 9, DBI 14, SRE 23]
-- Does a transaction span more than one service or store? Prefer redesigning the boundary; otherwise choose a saga with compensations over distributed two-phase commit. [DDIA 9, SAHP 12, DBI 13]
+- Does a transaction span more than one service or store? Prefer redesigning the boundary; otherwise choose a saga with compensations over distributed two-phase commit. [DDIA 9, SAHP 12, DBI 13, BM 6]
 
 Signals: money, inventory, bookings → strong guarantees on the core write path. Feeds, counters, analytics → eventual consistency. [DDIA 7, SDI2 11, SDI2 7]
 
@@ -109,8 +110,9 @@ Signals: several consumers derive their own views of the same changes → event 
 
 - What forces split the system (deployability, scalability, fault isolation, team ownership), and what forces keep it together (shared transactions, workflow, shared data)? [SAHP 4, SAHP 7]
 - Who owns each piece of data? One writer per table; others read through its interface or a copy. [SAHP 6, SAHP 9]
+- Does each service hide its internals (schema, implementation) behind its interface, so it can change without a coordinated release? Reaching into another service's data (content coupling) or passing data through only to hand it on (pass-through coupling) are the signs it doesn't. [BM 2]
 - How do services read data they don't own: call, replicated copy, cache, or shared store? [SAHP 10]
-- Workflow across services: orchestrated or choreographed? [SAHP 11]
+- Workflow across services: orchestrated or choreographed? [SAHP 11, BM 6]
 - How strict are contracts between services? [SAHP 13]
 
 Signals: two parts always change and deploy together → keep them in one service. Strong consistency needed across them → same service or same database. Different scale or availability → split. [SAHP 7, SAHP 9]
@@ -118,14 +120,24 @@ Signals: two parts always change and deploy together → keep them in one servic
 ## Architecture styles
 
 - Given the ranked quality attributes and the number of quanta, which style fits: modular monolith, layered, service-based, event-driven, microservices? [FSA 18]
-- How large is the team, and how independently must parts deploy? Microservices pay off only with independent deployability needs and the operational maturity to run them. [FSA 17, FSA 18]
+- How large is the team, and how independently must parts deploy? Microservices pay off only with independent deployability needs and the operational maturity to run them. [FSA 17, FSA 18, BM 1]
+- Are the domain's boundaries understood yet? While they're unclear, start with a modular monolith and split services out one capability at a time once a boundary proves stable. [BM 1, BM 3]
 
 Signals: one quantum, small team → modular monolith or service-based. Many quanta with distinct attributes → microservices or event-driven. High elasticity on bursty load → event-driven or space-based. [FSA 13, FSA 14, FSA 15, FSA 18]
+
+## Testing strategy
+
+- Which levels exist and what does each prove: unit (logic), service (one deployable unit with its real adapters, other services stubbed), end-to-end (whole user flows)? Keep end-to-end tests few: they are slow, brittle and hard to own across teams. [BM 9]
+- Where a provider and its consumers deploy independently, are contracts checked by consumer-driven contract tests rather than a broad end-to-end suite? [BM 9, SAHP 13]
+- Which non-functional requirements need their own tests: load against the capacity estimates and SLOs, failure injection against the failure modes? [BM 9, SRE 17, RI 17]
+- What can only be verified in production (synthetic transactions, canary releases)? [BM 9, SRE 17]
+
+Signals: one deployable unit → unit and service tests around each adapter, a handful of end-to-end flows. Several independently deployed services → contract tests at each boundary. Tight SLOs → load tests in the pipeline. Many dependencies with failure-mode requirements → failure injection. [BM 9, RI 17]
 
 ## Stability patterns
 
 - What does each integration point do when the remote side is slow, not down? Every outbound call needs a timeout. [RI 4, RI 5]
-- Should repeated failures trip a circuit breaker so callers fail fast? [RI 5]
+- Should repeated failures trip a circuit breaker so callers fail fast? [RI 5, BM 12]
 - Can one bad dependency exhaust shared resources (threads, connections)? Separate pools (bulkheads). [RI 5]
 - Are retries bounded, with backoff and jitter, and are retried operations idempotent? Unbounded retries turn a blip into a cascade. [RI 5, SRE 22]
 - Which features can degrade gracefully instead of failing the page? [RI 5, SRE 22]

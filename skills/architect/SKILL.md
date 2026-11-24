@@ -39,7 +39,7 @@ Call the Skill tool for `grilling` and `domain-modeling`. Grilling supplies the 
 | 5 | Storage | Engine type, replication, partitioning, consistency and transactions | Storage engines; Replication; Partitioning; Transactions and consistency |
 | 6 | Communication | Sync vs async, delivery guarantees, realtime transport, service boundaries | Streams and logs; Service boundaries and data ownership |
 | 7 | Failure modes | What each dependency does when slow or down, overload behaviour | Stability patterns; Overload and load shedding |
-| 8 | Stack | Architecture style, concrete technologies, adapter boundaries, testing strategy | Architecture styles |
+| 8 | Stack | Architecture style, concrete technologies, adapter boundaries, testing strategy | Architecture styles; Testing strategy |
 
 A phase is done when every principles topic it lists has either a settled answer or a recorded reason it doesn't apply (no requirement touches it). Then record the phase (step 3) and move on.
 
