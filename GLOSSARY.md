@@ -53,5 +53,5 @@ An existing, already-decided choice (from prior ADRs, the stack table, or the co
 _Avoid_: legacy, given
 
 **Stack table**:
-The single table recording easily reversible technology choices (choice, alternatives, why, requirement). One-way-door choices get an ADR instead.
+The single table recording easily reversible technology choices (choice, alternatives, why, requirement, date, status). One-way-door choices get an ADR instead.
 _Avoid_: tech radar, stack list
